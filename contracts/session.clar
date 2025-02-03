@@ -4,6 +4,7 @@
 (define-constant ERR_NOT_AUTHORIZED (err u100))
 (define-constant ERR_SESSION_NOT_FOUND (err u101))
 (define-constant ERR_SESSION_FULL (err u102))
+(define-constant ERR_ALREADY_JOINED (err u103))
 
 ;; Data vars
 (define-data-var next-session-id uint u0)
@@ -58,8 +59,10 @@
   (let
     (
       (session (unwrap! (map-get? sessions {session-id: session-id}) ERR_SESSION_NOT_FOUND))
+      (existing-participant (map-get? session-participants { session-id: session-id, participant: tx-sender }))
       (participant-count (get-participant-count session-id))
     )
+    (asserts! (is-none existing-participant) ERR_ALREADY_JOINED)
     (asserts! (< participant-count (get max-participants session)) ERR_SESSION_FULL)
     (map-set session-participants
       { session-id: session-id, participant: tx-sender }
@@ -75,5 +78,16 @@
 )
 
 (define-read-only (get-participant-count (session-id uint))
-  (len (map-get? session-participants {session-id: session-id}))
+  (let
+    ((participants (get-participants session-id)))
+    (len participants)
+  )
+)
+
+(define-read-only (get-participants (session-id uint))
+  (map-get? session-participants {session-id: session-id})
+)
+
+(define-read-only (is-participant (session-id uint) (user principal))
+  (is-some (map-get? session-participants { session-id: session-id, participant: user }))
 )
