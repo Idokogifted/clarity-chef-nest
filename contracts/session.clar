@@ -5,6 +5,7 @@
 (define-constant ERR_SESSION_NOT_FOUND (err u101))
 (define-constant ERR_SESSION_FULL (err u102))
 (define-constant ERR_ALREADY_JOINED (err u103))
+(define-constant ERR_INVALID_START_TIME (err u104))
 
 ;; Data vars
 (define-data-var next-session-id uint u0)
@@ -37,7 +38,10 @@
   (let
     (
       (session-id (var-get next-session-id))
+      (current-time block-height)
     )
+    ;; Validate start time
+    (asserts! (> start-time current-time) ERR_INVALID_START_TIME)
     (map-set sessions
       { session-id: session-id }
       {
@@ -78,16 +82,25 @@
 )
 
 (define-read-only (get-participant-count (session-id uint))
-  (let
-    ((participants (get-participants session-id)))
-    (len participants)
-  )
+  (fold + (map get-participant-joined-height (get-participants session-id)) u0)
 )
 
 (define-read-only (get-participants (session-id uint))
-  (map-get? session-participants {session-id: session-id})
+  (map unwrap-or-default 
+    (map-get? session-participants { session-id: session-id, participant: participant })
+    (map-keylist session-participants)
+  )
 )
 
 (define-read-only (is-participant (session-id uint) (user principal))
   (is-some (map-get? session-participants { session-id: session-id, participant: user }))
+)
+
+;; Helper functions
+(define-private (get-participant-joined-height (participant { joined-at: uint }))
+  u1
+)
+
+(define-private (unwrap-or-default (value (optional { joined-at: uint })))
+  (default-to { joined-at: u0 } value)
 )
